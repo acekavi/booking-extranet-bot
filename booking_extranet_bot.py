@@ -178,95 +178,6 @@ class BookingExtranetBot:
             logger.error(f"Login failed: {e}")
             return False
 
-    async def navigate_to_section(self, section: str) -> bool:
-        """Navigate to specific section in extranet"""
-        try:
-            if not self.page:
-                raise Exception("Page not available")
-
-            logger.info(f"Navigating to {section} section...")
-
-            # Common navigation mappings
-            navigation_map = {
-                'properties': '/hotel/hoteladmin/extranet_ng/manage/home.html',
-                'reservations': '/hotel/hoteladmin/extranet_ng/manage/reservations.html',
-                'rates': '/hotel/hoteladmin/extranet_ng/manage/rates_index.html',
-                'availability': '/hotel/hoteladmin/extranet_ng/manage/calendar.html',
-                'reviews': '/hotel/hoteladmin/extranet_ng/manage/guest_reviews.html',
-                'finance': '/hotel/hoteladmin/extranet_ng/manage/finance.html'
-            }
-
-            if section.lower() in navigation_map:
-                url = f"https://admin.booking.com{navigation_map[section.lower()]}"
-                await self.page.goto(url, wait_until='networkidle')
-                logger.info(f"Successfully navigated to {section}")
-                return True
-            else:
-                logger.warning(f"Unknown section: {section}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to navigate to {section}: {e}")
-            return False
-
-    async def get_reservations(self, days_ahead: int = 7) -> list:
-        """Get upcoming reservations"""
-        try:
-            if not self.page:
-                raise Exception("Browser not initialized")
-
-            await self.navigate_to_section('reservations')
-            await asyncio.sleep(2)  # Wait for page to load
-
-            # Wait for reservations table
-            await self.page.wait_for_selector('table', timeout=10000)
-
-            # Extract reservation data
-            reservations = await self.page.evaluate('''
-                () => {
-                    const rows = document.querySelectorAll('table tbody tr');
-                    const reservations = [];
-
-                    rows.forEach(row => {
-                        const cells = row.querySelectorAll('td');
-                        if (cells.length > 0) {
-                            reservations.push({
-                                reservation_id: cells[0]?.textContent?.trim() || '',
-                                guest_name: cells[1]?.textContent?.trim() || '',
-                                check_in: cells[2]?.textContent?.trim() || '',
-                                check_out: cells[3]?.textContent?.trim() || '',
-                                status: cells[4]?.textContent?.trim() || ''
-                            });
-                        }
-                    });
-
-                    return reservations;
-                }
-            ''')
-
-            logger.info(f"Retrieved {len(reservations)} reservations")
-            return reservations
-
-        except Exception as e:
-            logger.error(f"Failed to get reservations: {e}")
-            return []
-
-    async def update_availability(self, room_type: str, date: str, available_rooms: int) -> bool:
-        """Update room availability for specific date"""
-        try:
-            await self.navigate_to_section('availability')
-            await asyncio.sleep(2)
-
-            # Implementation would depend on the specific UI structure
-            # This is a template for the availability update functionality
-
-            logger.info(f"Updated availability for {room_type} on {date}: {available_rooms} rooms")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to update availability: {e}")
-            return False
-
     async def close(self) -> None:
         """Clean up browser resources"""
         try:
@@ -310,15 +221,23 @@ async def main():
         if await bot.login():
             logger.info("Login successful, ready for automation tasks!")
 
-            # Test navigation to calendar
+            # Navigate to calendar
             if await bot.navigate_to_calendar():
-                logger.info("Successfully navigated to calendar!")
+                logger.info("Navigated to calendar successfully")
 
-                # Get page info for debugging
-                page_info = await bot.get_calendar_info()
-                logger.info(f"Calendar page info: {page_info}")
-            else:
-                logger.error("Failed to navigate to calendar")
+                # Get current calendar info for debugging
+                calendar_info = await bot.get_calendar_info()
+                logger.info(f"Current calendar info: {calendar_info}")
+
+                # Process all rooms (example usage)
+                if bot.rate_manager:
+                    success = await bot.rate_manager.process_all_rooms()
+                    if success:
+                        logger.info("All rooms processed successfully")
+                    else:
+                        logger.error("Failed to process rooms")
+                else:
+                    logger.error("Rate manager not available")
 
         else:
             logger.error("Login failed!")

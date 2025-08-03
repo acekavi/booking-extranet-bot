@@ -1,43 +1,43 @@
-Room ID,Room Name,Room Type,Date Range,Price
-1106898201,Double Room with Garden View,Double,May 1 – September 30,44.99
-1106898201,Double Room with Garden View,Double,April 1 – April 30,59.99
-1106898201,Double Room with Garden View,Double,November 1 – November 30,59.99
-1106898201,Double Room with Garden View,Double,October 1 – October 31,66.99
-1106898201,Double Room with Garden View,Double,December 1 – December 15,66.99
-1106898201,Double Room with Garden View,Double,December 16 – March 31,79.99
-1106898202,Triple Room with Pool View,Triple,May 1 – September 30,74.99
-1106898202,Triple Room with Pool View,Triple,April 1 – April 30,89.99
-1106898202,Triple Room with Pool View,Triple,November 1 – November 30,89.99
-1106898202,Triple Room with Pool View,Triple,October 1 – October 31,94.99
-1106898202,Triple Room with Pool View,Triple,December 1 – December 15,94.99
-1106898202,Triple Room with Pool View,Triple,December 16 – March 31,109.99
-1106898203,Single Room with Pool View,Single,May 1 – September 30,37.99
-1106898203,Single Room with Pool View,Single,April 1 – April 30,44.99
-1106898203,Single Room with Pool View,Single,November 1 – November 30,44.99
-1106898203,Single Room with Pool View,Single,October 1 – October 31,50.99
-1106898203,Single Room with Pool View,Single,December 1 – December 15,50.99
-1106898203,Single Room with Pool View,Single,December 16 – March 31,59.99
-1106898205,Double Room with Balcony,Double,May 1 – September 30,44.99
-1106898205,Double Room with Balcony,Double,April 1 – April 30,59.99
-1106898205,Double Room with Balcony,Double,November 1 – November 30,59.99
-1106898205,Double Room with Balcony,Double,October 1 – October 31,66.99
-1106898205,Double Room with Balcony,Double,December 1 – December 15,66.99
-1106898205,Double Room with Balcony,Double,December 16 – March 31,79.99
-1106898207,Double Room with Pool View,Double,May 1 – September 30,44.99
-1106898207,Double Room with Pool View,Double,April 1 – April 30,59.99
-1106898207,Double Room with Pool View,Double,November 1 – November 30,59.99
-1106898207,Double Room with Pool View,Double,October 1 – October 31,66.99
-1106898207,Double Room with Pool View,Double,December 1 – December 15,66.99
-1106898207,Double Room with Pool View,Double,December 16 – March 31,79.99
-1106898214,Twin Room with Balcony,Twin,May 1 – September 30,59.99
-1106898214,Twin Room with Balcony,Twin,April 1 – April 30,74.99
-1106898214,Twin Room with Balcony,Twin,November 1 – November 30,74.99
-1106898214,Twin Room with Balcony,Twin,October 1 – October 31,82.99
-1106898214,Twin Room with Balcony,Twin,December 1 – December 15,82.99
-1106898214,Twin Room with Balcony,Twin,December 16 – March 31,94.99
-1106898215,Triple Room with Balcony,Triple,May 1 – September 30,74.99
-1106898215,Triple Room with Balcony,Triple,April 1 – April 30,89.99
-1106898215,Triple Room with Balcony,Triple,November 1 – November 30,89.99
-1106898215,Triple Room with Balcony,Triple,October 1 – October 31,94.99
-1106898215,Triple Room with Balcony,Triple,December 1 – December 15,94.99
-1106898215,Triple Room with Balcony,Triple,December 16 – March 31,109.99
+Room ID,Number of Rooms,Room Name,Room Type,Date Range,Price
+1106898201,2,Double Room with Garden View,Double,May 1 – September 30,44.99
+1106898201,2,Double Room with Garden View,Double,April 1 – April 30,59.99
+1106898201,2,Double Room with Garden View,Double,November 1 – November 30,59.99
+1106898201,2,Double Room with Garden View,Double,October 1 – October 31,66.99
+1106898201,2,Double Room with Garden View,Double,December 1 – December 15,66.99
+1106898201,2,Double Room with Garden View,Double,December 16 – March 31,79.99
+1106898202,1,Triple Room with Pool View,Triple,May 1 – September 30,74.99
+1106898202,1,Triple Room with Pool View,Triple,April 1 – April 30,89.99
+1106898202,1,Triple Room with Pool View,Triple,November 1 – November 30,89.99
+1106898202,1,Triple Room with Pool View,Triple,October 1 – October 31,94.99
+1106898202,1,Triple Room with Pool View,Triple,December 1 – December 15,94.99
+1106898202,1,Triple Room with Pool View,Triple,December 16 – March 31,109.99
+1106898203,1,Single Room with Pool View,Single,May 1 – September 30,37.99
+1106898203,1,Single Room with Pool View,Single,April 1 – April 30,44.99
+1106898203,1,Single Room with Pool View,Single,November 1 – November 30,44.99
+1106898203,1,Single Room with Pool View,Single,October 1 – October 31,50.99
+1106898203,1,Single Room with Pool View,Single,December 1 – December 15,50.99
+1106898203,1,Single Room with Pool View,Single,December 16 – March 31,59.99
+1106898205,5,Double Room with Balcony,Double,May 1 – September 30,44.99
+1106898205,5,Double Room with Balcony,Double,April 1 – April 30,59.99
+1106898205,5,Double Room with Balcony,Double,November 1 – November 30,59.99
+1106898205,5,Double Room with Balcony,Double,October 1 – October 31,66.99
+1106898205,5,Double Room with Balcony,Double,December 1 – December 15,66.99
+1106898205,5,Double Room with Balcony,Double,December 16 – March 31,79.99
+1106898207,1,Double Room with Pool View,Double,May 1 – September 30,44.99
+1106898207,1,Double Room with Pool View,Double,April 1 – April 30,59.99
+1106898207,1,Double Room with Pool View,Double,November 1 – November 30,59.99
+1106898207,1,Double Room with Pool View,Double,October 1 – October 31,66.99
+1106898207,1,Double Room with Pool View,Double,December 1 – December 15,66.99
+1106898207,1,Double Room with Pool View,Double,December 16 – March 31,79.99
+1106898214,1,Twin Room with Balcony,Twin,May 1 – September 30,59.99
+1106898214,1,Twin Room with Balcony,Twin,April 1 – April 30,74.99
+1106898214,1,Twin Room with Balcony,Twin,November 1 – November 30,74.99
+1106898214,1,Twin Room with Balcony,Twin,October 1 – October 31,82.99
+1106898214,1,Twin Room with Balcony,Twin,December 1 – December 15,82.99
+1106898214,1,Twin Room with Balcony,Twin,December 16 – March 31,94.99
+1106898215,1,Triple Room with Balcony,Triple,May 1 – September 30,74.99
+1106898215,1,Triple Room with Balcony,Triple,April 1 – April 30,89.99
+1106898215,1,Triple Room with Balcony,Triple,November 1 – November 30,89.99
+1106898215,1,Triple Room with Balcony,Triple,October 1 – October 31,94.99
+1106898215,1,Triple Room with Balcony,Triple,December 1 – December 15,94.99
+1106898215,1,Triple Room with Balcony,Triple,December 16 – March 31,109.99
