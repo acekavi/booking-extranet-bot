@@ -325,32 +325,99 @@ class RateManager:
             bool: True if modal processed successfully
         """
         try:
+            # Wait for modal to fully load
+            logger.info(f"Waiting for bulk edit modal to load for room {room_info['name']}")
+
+            # Wait for modal to appear - try multiple selectors
+            modal_selectors = [
+                '.av-general-modal',
+                '.modal',
+                '[role="dialog"]',
+                '.bui-modal',
+                '.av-general-modal__content'
+            ]
+
+            modal_loaded = False
+            for selector in modal_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    logger.info(f"Modal loaded - found element: {selector}")
+                    modal_loaded = True
+                    break
+                except:
+                    continue
+
+            if not modal_loaded:
+                logger.error("Modal did not load properly")
+                return False
+
             # Get room data from CSV
             room_data = self.get_room_data_by_id(room_info['id'])
             if not room_data:
                 logger.error(f"No CSV data found for room ID {room_info['id']}")
+                await self.close_modal_emergency()
                 return False
 
             logger.info(f"Found {len(room_data)} pricing records for room {room_info['name']}")
 
             # Process each date range for this room
-            for record in room_data:
+            for i, record in enumerate(room_data):
+                logger.info(f"Processing date range {i+1}/{len(room_data)} for room {room_info['name']}")
+
                 success = await self.process_date_range_in_modal(record)
                 if not success:
                     logger.error(f"Failed to process date range for record: {record}")
+                    await self.close_modal_emergency()
                     return False
 
                 # Small delay between date range updates
                 await asyncio.sleep(1)
 
-            # Close modal or save changes
-            await self.save_and_close_modal()
+            # Save and close modal after all date ranges are processed
+            success = await self.save_and_close_modal()
+            if not success:
+                logger.error(f"Failed to save and close modal for room {room_info['name']}")
+                await self.close_modal_emergency()
+                return False
 
+            logger.info(f"Successfully completed bulk edit for room {room_info['name']}")
             return True
 
         except Exception as e:
             logger.error(f"Error handling bulk edit modal: {e}")
+            await self.close_modal_emergency()
             return False
+
+    async def close_modal_emergency(self) -> None:
+        """
+        Emergency modal close function using multiple methods
+        """
+        try:
+            logger.warning("Attempting emergency modal close")
+
+            # Try close button first
+            try:
+                close_button = await self.page.query_selector('button.av-general-modal__close')
+                if close_button and await close_button.is_visible():
+                    await close_button.click()
+                    await asyncio.sleep(1)
+                    return
+            except:
+                pass
+
+            # Try escape key
+            await self.page.keyboard.press('Escape')
+            await asyncio.sleep(1)
+
+            # Try clicking outside modal
+            try:
+                await self.page.click('body', position={'x': 10, 'y': 10})
+                await asyncio.sleep(1)
+            except:
+                pass
+
+        except Exception as e:
+            logger.error(f"Emergency modal close failed: {e}")
 
     async def process_date_range_in_modal(self, record: Dict) -> bool:
         """
@@ -507,10 +574,77 @@ class RateManager:
         try:
             logger.info("Saving and closing bulk edit modal")
 
-            # TODO: Implement based on actual modal UI
-            # Look for save/apply/close buttons
+            # First try to find and click any save/apply button if present
+            save_selectors = [
+                'button[type="submit"]',
+                'button:has-text("Save")',
+                'button:has-text("Apply")',
+                'button:has-text("Update")',
+                '.bui-button--primary:has-text("Save")',
+                '.bui-button--primary:has-text("Apply")'
+            ]
 
-            return True
+            save_button_found = False
+            for selector in save_selectors:
+                try:
+                    save_button = await self.page.query_selector(selector)
+                    if save_button:
+                        # Check if button is visible and enabled
+                        is_visible = await save_button.is_visible()
+                        is_enabled = await save_button.is_enabled()
+
+                        if is_visible and is_enabled:
+                            logger.info(f"Found and clicking save button: {selector}")
+                            await save_button.click()
+                            save_button_found = True
+                            await asyncio.sleep(1)  # Wait for save to process
+                            break
+                except Exception:
+                    continue
+
+            if save_button_found:
+                logger.info("Save button clicked, waiting before closing modal")
+                await asyncio.sleep(2)  # Give time for save operation
+
+            # Now close the modal using the close button
+            close_button_selector = 'button.av-general-modal__close'
+
+            try:
+                await self.page.wait_for_selector(close_button_selector, timeout=5000)
+                close_button = await self.page.query_selector(close_button_selector)
+
+                if close_button:
+                    is_visible = await close_button.is_visible()
+                    if is_visible:
+                        logger.info("Clicking modal close button")
+                        await close_button.click()
+
+                        # Wait for modal to close
+                        await asyncio.sleep(2)
+
+                        # Verify modal is closed by checking if close button is no longer visible
+                        try:
+                            await self.page.wait_for_selector(close_button_selector, state='hidden', timeout=3000)
+                            logger.info("Modal successfully closed")
+                            return True
+                        except:
+                            logger.warning("Modal close button still visible, but continuing")
+                            return True
+                    else:
+                        logger.error("Close button found but not visible")
+                        return False
+                else:
+                    logger.error("Close button not found")
+                    return False
+
+            except Exception as e:
+                logger.error(f"Failed to find or click close button: {e}")
+
+                # Fallback: try to press Escape key to close modal
+                logger.info("Trying to close modal with Escape key as fallback")
+                await self.page.keyboard.press('Escape')
+                await asyncio.sleep(1)
+                return True
 
         except Exception as e:
             logger.error(f"Error saving and closing modal: {e}")
