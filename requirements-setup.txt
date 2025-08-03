@@ -1,0 +1,2 @@
+# Add these to requirements.txt for 2FA setup
+qrcode[pil]

@@ -1,0 +1,5 @@
+playwright
+pyotp
+python-dotenv
+asyncio-throttle
+requests
