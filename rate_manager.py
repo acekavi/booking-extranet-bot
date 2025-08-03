@@ -430,7 +430,12 @@ class RateManager:
             bool: True if date range processed successfully
         """
         try:
-            logger.info(f"Processing date range: {record['Date Range']} with price {record['Price']}")
+            logger.info(f"=====================================")
+            logger.info(f"Processing date range: {record['Date Range']}")
+            logger.info(f"Room: {record['Room Name']} (ID: {record['Room ID']})")
+            logger.info(f"Price: {record['Price']}")
+            logger.info(f"Number of Rooms: {record['Number of Rooms']}")
+            logger.info(f"=====================================")
 
             # Parse date range
             start_date, end_date = self.parse_date_range(record['Date Range'])
@@ -442,30 +447,42 @@ class RateManager:
             today = datetime.now()
             if start_date < today:
                 start_date = today
+                logger.info(f"Adjusted start date to today: {start_date.strftime('%Y-%m-%d')}")
 
-            # Select date range in modal
+            # Step 1: Select date range in modal
+            logger.info("Step 1: Setting date range...")
             success = await self.select_date_range_in_modal(start_date, end_date)
             if not success:
-                logger.error(f"Failed to select date range in modal")
+                logger.error("Failed to select date range in modal")
                 return False
+            logger.info("✓ Date range set successfully")
 
-            # Set number of rooms to sell
+            # Step 2: Set number of rooms to sell
+            logger.info("Step 2: Setting rooms to sell...")
             success = await self.set_rooms_to_sell(record['Number of Rooms'])
             if not success:
-                logger.error(f"Failed to set rooms to sell")
+                logger.error("Failed to set rooms to sell")
                 return False
+            logger.info("✓ Rooms to sell set successfully")
 
-            # Select last rate plan and set price
+            # Step 3: Select rate plan and set price
+            logger.info("Step 3: Setting rate plan and price...")
             success = await self.set_rate_plan_and_price(record['Price'])
             if not success:
-                logger.error(f"Failed to set rate plan and price")
+                logger.error("Failed to set rate plan and price")
                 return False
+            logger.info("✓ Rate plan and price set successfully")
 
-            # Set room status to open
+            # Step 4: Set room status to open
+            logger.info("Step 4: Setting room status to open...")
             success = await self.set_room_status_open()
             if not success:
-                logger.error(f"Failed to set room status to open")
+                logger.error("Failed to set room status to open")
                 return False
+            logger.info("✓ Room status set to open successfully")
+
+            logger.info(f"✓ Completed processing date range: {record['Date Range']}")
+            logger.info(f"=====================================")
 
             return True
 
@@ -485,14 +502,49 @@ class RateManager:
             bool: True if date range selected successfully
         """
         try:
-            # This will need to be implemented based on the actual modal UI
-            # Placeholder for date selection logic
-            logger.info(f"Selecting date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+            # Format dates to YYYY-MM-DD format as required
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            end_date_str = end_date.strftime('%Y-%m-%d')
 
-            # Wait for date picker elements
-            # await self.page.wait_for_selector('[data-testid="date-picker"]', timeout=5000)
+            logger.info(f"Setting date range: {start_date_str} to {end_date_str}")
 
-            # TODO: Implement actual date selection based on modal UI
+            # Clear and set start date
+            start_date_input = await self.page.query_selector('input#date-from')
+            if not start_date_input:
+                logger.error("Start date input field not found")
+                return False
+
+            # Clear the input first
+            await start_date_input.click()
+            await self.page.keyboard.press('Control+a')  # Select all
+            await self.page.keyboard.press('Delete')     # Delete selected text
+            await asyncio.sleep(0.5)
+
+            # Type the start date
+            await start_date_input.type(start_date_str, delay=50)
+            await asyncio.sleep(0.5)
+            logger.info(f"Start date set to: {start_date_str}")
+
+            # Clear and set end date
+            end_date_input = await self.page.query_selector('input#date-to')
+            if not end_date_input:
+                logger.error("End date input field not found")
+                return False
+
+            # Clear the input first
+            await end_date_input.click()
+            await self.page.keyboard.press('Control+a')  # Select all
+            await self.page.keyboard.press('Delete')     # Delete selected text
+            await asyncio.sleep(0.5)
+
+            # Type the end date
+            await end_date_input.type(end_date_str, delay=50)
+            await asyncio.sleep(0.5)
+            logger.info(f"End date set to: {end_date_str}")
+
+            # Optional: Press Tab or click elsewhere to trigger any date validation
+            await end_date_input.press('Tab')
+            await asyncio.sleep(1)
             return True
 
         except Exception as e:
@@ -510,10 +562,18 @@ class RateManager:
             bool: True if rooms to sell set successfully
         """
         try:
-            logger.info(f"Setting rooms to sell: {num_rooms}")
+            logger.info(f"[DUMMY] Setting rooms to sell: {num_rooms}")
 
             # TODO: Implement based on actual modal UI
             # This might be an input field or dropdown
+            # Example selectors to try:
+            # - input[name="rooms"]
+            # - input[id*="room"]
+            # - select[name="rooms_to_sell"]
+
+            # Simulate setting rooms to sell
+            await asyncio.sleep(0.5)  # Simulate processing time
+            logger.info(f"[DUMMY] Successfully set rooms to sell to: {num_rooms}")
 
             return True
 
@@ -532,12 +592,34 @@ class RateManager:
             bool: True if rate plan and price set successfully
         """
         try:
-            logger.info(f"Setting price: {price}")
+            logger.info(f"[DUMMY] Setting rate plan and price: {price}")
 
             # TODO: Implement based on actual modal UI
-            # 1. Find rate plan dropdown
-            # 2. Select the last option (with most guests)
-            # 3. Set the price in the price field
+            # Steps to implement:
+            # 1. Find rate plan dropdown (likely select element or button with dropdown)
+            # 2. Get all options from the dropdown
+            # 3. Select the last option (with most guests)
+            # 4. Find price input field
+            # 5. Set the price in the price field
+
+            # Example selectors to try:
+            # Rate plan dropdown:
+            # - select[name*="rate"]
+            # - select[id*="plan"]
+            # - button[aria-haspopup="listbox"]
+            #
+            # Price input:
+            # - input[name*="price"]
+            # - input[id*="rate"]
+            # - input[type="number"]
+
+            # Simulate selecting rate plan
+            await asyncio.sleep(0.5)
+            logger.info(f"[DUMMY] Selected last rate plan (highest guest capacity)")
+
+            # Simulate setting price
+            await asyncio.sleep(0.5)
+            logger.info(f"[DUMMY] Successfully set price to: {price}")
 
             return True
 
@@ -553,10 +635,33 @@ class RateManager:
             bool: True if room status set successfully
         """
         try:
-            logger.info("Setting room status to open")
+            logger.info("[DUMMY] Setting room status to open")
 
             # TODO: Implement based on actual modal UI
-            # This might be a radio button, checkbox, or dropdown
+            # This might be:
+            # - A radio button group
+            # - A checkbox
+            # - A dropdown/select element
+            # - Toggle buttons
+
+            # Example selectors to try:
+            # Radio buttons:
+            # - input[type="radio"][value*="open"]
+            # - input[name*="status"][value="open"]
+            #
+            # Checkbox:
+            # - input[type="checkbox"][name*="open"]
+            #
+            # Dropdown:
+            # - select[name*="status"] option[value*="open"]
+            #
+            # Button:
+            # - button:has-text("Open")
+            # - button[data-value="open"]
+
+            # Simulate setting room status
+            await asyncio.sleep(0.5)
+            logger.info("[DUMMY] Successfully set room status to: Open")
 
             return True
 
