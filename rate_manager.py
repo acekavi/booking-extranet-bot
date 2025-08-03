@@ -76,6 +76,11 @@ class RateManager:
             if start_date > end_date:
                 end_date = end_date.replace(year=current_year + 1)
 
+            # Handle dates that go into 2027 - cap at 2027-01-01
+            if end_date.year > 2026 or (end_date.year == 2027 and end_date.month >= 1):
+                logger.info(f"End date {end_date} is beyond 2027-01-01, adjusting to 2027-01-01")
+                end_date = end_date.replace(year=2027, month=1, day=1)
+
             return start_date, end_date
         except Exception as e:
             logger.error(f"Failed to parse date range '{date_range_str}': {e}")
@@ -360,25 +365,60 @@ class RateManager:
 
             logger.info(f"Found {len(room_data)} pricing records for room {room_info['name']}")
 
-            # Process each date range for this room
-            for i, record in enumerate(room_data):
-                logger.info(f"Processing date range {i+1}/{len(room_data)} for room {room_info['name']}")
+            # Filter out date ranges that are before today
+            today = datetime.now().date()
+            valid_room_data = []
 
-                success = await self.process_date_range_in_modal(record)
+            for record in room_data:
+                start_date, end_date = self.parse_date_range(record['Date Range'])
+                if start_date and end_date:
+                    # Skip if the entire date range is before today
+                    if end_date.date() < today:
+                        logger.info(f"Skipping date range {record['Date Range']} - entirely before today")
+                        continue
+                    # Adjust start date if it's before today
+                    if start_date.date() < today:
+                        logger.info(f"Adjusting start date for range {record['Date Range']} to today")
+                    valid_room_data.append(record)
+                else:
+                    logger.warning(f"Skipping invalid date range: {record['Date Range']}")
+
+            if not valid_room_data:
+                logger.warning(f"No valid date ranges found for room {room_info['name']}")
+                await self.close_modal_emergency()
+                return True  # Not an error, just no valid data
+
+            logger.info(f"Processing {len(valid_room_data)} valid date ranges for room {room_info['name']}")
+
+            # Process each date range separately - close and reopen modal for each
+            for i, record in enumerate(valid_room_data):
+                logger.info(f"Processing date range {i+1}/{len(valid_room_data)} for room {room_info['name']}")
+
+                # For the first date range, we already have the modal open
+                if i == 0:
+                    success = await self.process_date_range_in_modal(record)
+                else:
+                    # Close the current modal
+                    logger.info("Closing modal before processing next date range")
+                    await self.close_modal_emergency()
+                    await asyncio.sleep(2)  # Wait for modal to close
+
+                    # Reopen the modal by clicking bulk edit again
+                    logger.info("Reopening modal for next date range")
+                    success = await self.reopen_modal_and_process(room_info, record)
+
                 if not success:
                     logger.error(f"Failed to process date range for record: {record}")
                     await self.close_modal_emergency()
                     return False
 
                 # Small delay between date range updates
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
 
-            # Save and close modal after all date ranges are processed
-            success = await self.save_and_close_modal()
-            if not success:
-                logger.error(f"Failed to save and close modal for room {room_info['name']}")
-                await self.close_modal_emergency()
-                return False
+            # Close the final modal
+            logger.info("Closing final modal after all date ranges processed")
+            await self.close_modal_emergency()
+            await asyncio.sleep(2)
 
             logger.info(f"Successfully completed bulk edit for room {room_info['name']}")
             return True
@@ -386,6 +426,76 @@ class RateManager:
         except Exception as e:
             logger.error(f"Error handling bulk edit modal: {e}")
             await self.close_modal_emergency()
+            return False
+
+    async def reopen_modal_and_process(self, room_info: Dict, record: Dict) -> bool:
+        """
+        Reopen the bulk edit modal and process a single date range record
+
+        Args:
+            room_info: Dict with room information
+            record: CSV record with pricing information
+
+        Returns:
+            bool: True if successfully processed
+        """
+        try:
+            # Find the room container again
+            room_containers = await self.page.query_selector_all('.av-cal-list-room__name-row')
+            target_room_container = None
+
+            for room_container in room_containers:
+                try:
+                    extracted_info = await self.extract_room_info(room_container)
+                    if extracted_info and extracted_info['id'] == room_info['id']:
+                        target_room_container = room_container
+                        break
+                except:
+                    continue
+
+            if not target_room_container:
+                logger.error(f"Could not find room container for {room_info['name']}")
+                return False
+
+            # Click bulk edit button
+            bulk_edit_button = await target_room_container.query_selector('button.bui-button--primary')
+            if not bulk_edit_button:
+                logger.error(f"Bulk edit button not found for room {room_info['name']}")
+                return False
+
+            logger.info(f"Reopening bulk edit modal for room {room_info['name']}")
+            await bulk_edit_button.click()
+            await asyncio.sleep(3)  # Wait for modal to load
+
+            # Wait for modal to appear
+            modal_selectors = [
+                '.av-general-modal',
+                '.modal',
+                '[role="dialog"]',
+                '.bui-modal',
+                '.av-general-modal__content'
+            ]
+
+            modal_loaded = False
+            for selector in modal_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    logger.info(f"Modal reopened - found element: {selector}")
+                    modal_loaded = True
+                    break
+                except:
+                    continue
+
+            if not modal_loaded:
+                logger.error("Modal did not reopen properly")
+                return False
+
+            # Process the date range
+            success = await self.process_date_range_in_modal(record)
+            return success
+
+        except Exception as e:
+            logger.error(f"Error reopening modal and processing: {e}")
             return False
 
     async def click_save_changes_button(self, context: str = "accordion") -> bool:
@@ -433,7 +543,7 @@ class RateManager:
 
             logger.info(f"Clicking 'Save changes' button in {context}")
             await save_button.click()
-            await asyncio.sleep(3)  # Wait for save operation to complete
+            await asyncio.sleep(10)  # Wait for save operation to complete
 
             logger.info(f"Successfully clicked 'Save changes' button in {context}")
             return True
@@ -447,21 +557,23 @@ class RateManager:
         Emergency modal close function using multiple methods
         """
         try:
-            logger.warning("Attempting emergency modal close")
+            logger.warning("Attempting to close modal")
 
             # Try close button first
             try:
                 close_button = await self.page.query_selector('button.av-general-modal__close')
                 if close_button and await close_button.is_visible():
                     await close_button.click()
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
+                    logger.info("Modal closed using close button")
                     return
             except:
                 pass
 
             # Try escape key
             await self.page.keyboard.press('Escape')
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
+            logger.info("Modal closed using Escape key")
 
             # Try clicking outside modal
             try:
@@ -497,11 +609,25 @@ class RateManager:
                 logger.error(f"Failed to parse date range: {record['Date Range']}")
                 return False
 
-            # Ensure dates are from today onwards
+            # Ensure dates are from today onwards and don't go beyond 2026
             today = datetime.now()
-            if start_date < today:
+            if end_date.date() < today.date():
+                logger.warning(f"Skipping date range {record['Date Range']} - entirely before today")
+                return True  # Skip this range but don't fail
+
+            if start_date.date() < today.date():
                 start_date = today
                 logger.info(f"Adjusted start date to today: {start_date.strftime('%Y-%m-%d')}")
+
+            # Don't process dates beyond 2027-01-01
+            cutoff_date = datetime(2027, 1, 1)
+            if start_date >= cutoff_date:
+                logger.warning(f"Skipping date range {record['Date Range']} - starts on or after 2027-01-01")
+                return True  # Skip this range but don't fail
+
+            if end_date > cutoff_date:
+                end_date = cutoff_date
+                logger.info(f"Adjusted end date to 2027-01-01: {end_date.strftime('%Y-%m-%d')}")
 
             # Step 1: Select date range in modal
             logger.info("Step 1: Setting date range...")
@@ -534,6 +660,14 @@ class RateManager:
                 logger.error("Failed to set room status to open")
                 return False
             logger.info("✓ Room status set to open successfully")
+
+            # Save and close this date range processing
+            logger.info("Step 5: Saving and closing for this date range...")
+            success = await self.save_and_close_modal()
+            if not success:
+                logger.error("Failed to save and close modal for this date range")
+                return False
+            logger.info("✓ Modal saved and closed successfully")
 
             logger.info(f"✓ Completed processing date range: {record['Date Range']}")
             logger.info(f"=====================================")
