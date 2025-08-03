@@ -388,6 +388,60 @@ class RateManager:
             await self.close_modal_emergency()
             return False
 
+    async def click_save_changes_button(self, context: str = "accordion") -> bool:
+        """
+        Find and click an enabled "Save changes" button
+
+        Args:
+            context: Context description for logging purposes
+
+        Returns:
+            bool: True if save button was found and clicked successfully
+        """
+        try:
+            logger.info(f"Looking for 'Save changes' button in {context}")
+
+            save_button_selectors = [
+                'button:has-text("Save changes")',
+                'button:text("Save changes")',
+                '.bui-button:has-text("Save changes")',
+                '[type="submit"]:has-text("Save changes")'
+            ]
+
+            save_button = None
+            for selector in save_button_selectors:
+                try:
+                    # Find all buttons matching this selector
+                    buttons = await self.page.query_selector_all(selector)
+
+                    # Look for an enabled and visible button
+                    for button in buttons:
+                        if (await button.is_visible() and
+                            await button.is_enabled() and
+                            not await button.is_disabled()):
+                            save_button = button
+                            break
+
+                    if save_button:
+                        break
+                except:
+                    continue
+
+            if not save_button:
+                logger.error(f"Could not find enabled 'Save changes' button in {context}")
+                return False
+
+            logger.info(f"Clicking 'Save changes' button in {context}")
+            await save_button.click()
+            await asyncio.sleep(3)  # Wait for save operation to complete
+
+            logger.info(f"Successfully clicked 'Save changes' button in {context}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error clicking 'Save changes' button in {context}: {e}")
+            return False
+
     async def close_modal_emergency(self) -> None:
         """
         Emergency modal close function using multiple methods
@@ -604,32 +658,13 @@ class RateManager:
             await rooms_input.type(str(num_rooms), delay=50)
             logger.info(f"Input number of rooms: {num_rooms}")
 
-            # Step 3: Find and click "Save changes" button in the accordion
-            await asyncio.sleep(0.5)  # Brief pause before looking for save button
+            # Step 3: Save changes in the accordion
+            await asyncio.sleep(0.5)  # Brief pause before saving
 
-            save_button_selectors = [
-                'button:has-text("Save changes")',
-                'button:text("Save changes")',
-                '.bui-button:has-text("Save changes")',
-                '[type="submit"]:has-text("Save changes")'
-            ]
-
-            save_button = None
-            for selector in save_button_selectors:
-                try:
-                    save_button = await self.page.query_selector(selector)
-                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
-                        break
-                except:
-                    continue
-
-            if not save_button:
-                logger.error("Could not find 'Save changes' button in accordion")
+            success = await self.click_save_changes_button("rooms to sell accordion")
+            if not success:
+                logger.error("Failed to save rooms to sell changes")
                 return False
-
-            logger.info("Clicking 'Save changes' button to save rooms to sell")
-            await save_button.click()
-            await asyncio.sleep(1)  # Wait for save operation to complete
 
             logger.info(f"Successfully set rooms to sell to: {num_rooms}")
             return True
@@ -745,32 +780,13 @@ class RateManager:
             await price_input.type(str(price), delay=50)
             logger.info(f"Set price to: {price}")
 
-            # Step 4: Find and click "Save changes" button
-            await asyncio.sleep(0.5)  # Brief pause before looking for save button
+            # Step 4: Save changes
+            await asyncio.sleep(0.5)  # Brief pause before saving
 
-            save_button_selectors = [
-                'button:has-text("Save changes")',
-                'button:text("Save changes")',
-                '.bui-button:has-text("Save changes")',
-                '[type="submit"]:has-text("Save changes")'
-            ]
-
-            save_button = None
-            for selector in save_button_selectors:
-                try:
-                    save_button = await self.page.query_selector(selector)
-                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
-                        break
-                except:
-                    continue
-
-            if not save_button:
-                logger.error("Could not find 'Save changes' button for prices")
+            success = await self.click_save_changes_button("prices accordion")
+            if not success:
+                logger.error("Failed to save rate plan and price changes")
                 return False
-
-            logger.info("Clicking 'Save changes' button to save rate plan and price")
-            await save_button.click()
-            await asyncio.sleep(1)  # Wait for save operation to complete
 
             logger.info(f"Successfully set rate plan to: {option_text} and price to: {price}")
             return True
@@ -814,56 +830,50 @@ class RateManager:
             await room_status_button.click()
             await asyncio.sleep(1)  # Wait for accordion to open
 
-            # Step 2: Find and click the "Open room" radio button
-            open_room_radio = await self.page.query_selector('input#single-room-status-input-open')
-            if not open_room_radio:
-                # Try alternative selectors
-                radio_selectors = [
-                    'input[type="radio"][name="rate"][value="true"]',
-                    'input[id*="room-status"][value="true"]',
-                    'label:has-text("Open room") input[type="radio"]'
-                ]
+            # Step 2: Find and click the "Open room" option
+            # Try clicking on the span text first as suggested
+            open_room_span = await self.page.query_selector('span:has-text("Open room")')
+            if open_room_span:
+                logger.info("Clicking on 'Open room' span")
+                await open_room_span.click()
+                await asyncio.sleep(2)  # Wait for 2 seconds as requested
+            else:
+                # Fallback to radio button if span not found
+                open_room_radio = await self.page.query_selector('input#single-room-status-input-open')
+                if not open_room_radio:
+                    # Try alternative selectors
+                    radio_selectors = [
+                        'input[type="radio"][name="rate"][value="true"]',
+                        'input[id*="room-status"][value="true"]',
+                        'label:has-text("Open room") input[type="radio"]'
+                    ]
 
-                for selector in radio_selectors:
-                    try:
-                        open_room_radio = await self.page.query_selector(selector)
-                        if open_room_radio:
-                            break
-                    except:
-                        continue
+                    for selector in radio_selectors:
+                        try:
+                            open_room_radio = await self.page.query_selector(selector)
+                            if open_room_radio:
+                                break
+                        except:
+                            continue
 
-            if not open_room_radio:
-                logger.error("Could not find 'Open room' radio button")
+                if not open_room_radio:
+                    logger.error("Could not find 'Open room' radio button or span")
+                    return False
+
+                logger.info("Clicking 'Open room' radio button")
+                await open_room_radio.click()
+                await asyncio.sleep(2)  # Wait for 2 seconds
+
+            # Step 3: Wait for save button to become enabled and then click it
+            logger.info("Waiting for save button to become enabled...")
+
+            # Wait a bit more for the form to update after radio selection
+            await asyncio.sleep(1)
+
+            success = await self.click_save_changes_button("room status accordion")
+            if not success:
+                logger.error("Failed to save room status changes")
                 return False
-
-            logger.info("Selecting 'Open room' radio button")
-            await open_room_radio.click()
-            await asyncio.sleep(0.5)
-
-            # Step 3: Find and click "Save changes" button in the accordion
-            save_button_selectors = [
-                'button:has-text("Save changes")',
-                'button:text("Save changes")',
-                '.bui-button:has-text("Save changes")',
-                '[type="submit"]:has-text("Save changes")'
-            ]
-
-            save_button = None
-            for selector in save_button_selectors:
-                try:
-                    save_button = await self.page.query_selector(selector)
-                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
-                        break
-                except:
-                    continue
-
-            if not save_button:
-                logger.error("Could not find 'Save changes' button for room status")
-                return False
-
-            logger.info("Clicking 'Save changes' button to save room status")
-            await save_button.click()
-            await asyncio.sleep(1)  # Wait for save operation to complete
 
             logger.info("Successfully set room status to: Open room")
             return True
