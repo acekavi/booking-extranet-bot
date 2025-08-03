@@ -9,6 +9,7 @@ import asyncio
 import logging
 import csv
 import os
+import random
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Tuple
 from playwright.async_api import Page
@@ -31,6 +32,26 @@ class RateManager:
         self.page = page
         self.csv_data = []
         self.load_csv_data()
+
+    async def human_delay(self, min_seconds: float = 3, max_seconds: float = 10, wait_for_network: bool = True) -> None:
+        """
+        Add a human-like random delay and optionally wait for network idle
+
+        Args:
+            min_seconds: Minimum delay in seconds
+            max_seconds: Maximum delay in seconds
+            wait_for_network: Whether to wait for network idle state
+        """
+        delay = random.uniform(min_seconds, max_seconds)
+        logger.debug(f"Human delay: {delay:.1f} seconds")
+        await asyncio.sleep(delay)
+
+        if wait_for_network:
+            try:
+                await self.page.wait_for_load_state('networkidle', timeout=5000)
+                logger.debug("Network idle state reached")
+            except Exception as e:
+                logger.debug(f"Network idle timeout (continuing): {e}")
 
     def load_csv_data(self) -> None:
         """
@@ -227,7 +248,7 @@ class RateManager:
                     logger.info(f"Successfully processed room: {room_info['name']}")
 
                     # Small delay between rooms to avoid overwhelming the system
-                    await asyncio.sleep(1)
+                    await self.human_delay(4, 8, wait_for_network=True)  # Human-like delay between rooms
 
                 except Exception as e:
                     logger.error(f"Error processing room {i+1}: {e}")
@@ -303,7 +324,7 @@ class RateManager:
             await bulk_edit_button.click()
 
             # Wait for modal to appear
-            await asyncio.sleep(2)
+            await self.human_delay(3, 5, wait_for_network=True)
 
             # Process the modal
             success = await self.handle_bulk_edit_modal(room_info)
@@ -413,7 +434,7 @@ class RateManager:
                     return False
 
                 # Small delay between date range updates
-                await asyncio.sleep(2)
+                await self.human_delay(4, 8, wait_for_network=True)  # Human-like delay to prevent overwhelming the system
 
             # Close the final modal
             logger.info("Closing final modal after all date ranges processed")
@@ -465,7 +486,7 @@ class RateManager:
 
             logger.info(f"Reopening bulk edit modal for room {room_info['name']}")
             await bulk_edit_button.click()
-            await asyncio.sleep(3)  # Wait for modal to load
+            await self.human_delay(4, 6, wait_for_network=True)  # Wait for modal to load
 
             # Wait for modal to appear
             modal_selectors = [
@@ -543,7 +564,15 @@ class RateManager:
 
             logger.info(f"Clicking 'Save changes' button in {context}")
             await save_button.click()
-            await asyncio.sleep(10)  # Wait for save operation to complete
+
+            # Human-like delay and wait for network idle
+            await self.human_delay(3, 8, wait_for_network=True)
+
+            # Check for error messages after save
+            success = await self.check_for_save_errors(context)
+            if not success:
+                logger.error(f"Save operation failed with error in {context}")
+                return False
 
             logger.info(f"Successfully clicked 'Save changes' button in {context}")
             return True
@@ -551,6 +580,42 @@ class RateManager:
         except Exception as e:
             logger.error(f"Error clicking 'Save changes' button in {context}: {e}")
             return False
+
+    async def check_for_save_errors(self, context: str) -> bool:
+        """
+        Check for error messages after a save operation
+
+        Args:
+            context: Context description for logging purposes
+
+        Returns:
+            bool: True if no errors found, False if errors detected
+        """
+        try:
+            # Wait a moment for any error messages to appear
+            await asyncio.sleep(2)
+
+            # Check for common error message patterns
+            error_selectors = [
+                ':has-text("Whoops! Something went wrong")',
+            ]
+
+            for selector in error_selectors:
+                try:
+                    error_elements = await self.page.query_selector_all(selector)
+                    for error_element in error_elements:
+                        if await error_element.is_visible():
+                            error_text = await error_element.inner_text()
+                            logger.error(f"Error detected in {context}: {error_text}")
+                            return False
+                except:
+                    continue
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error checking for save errors in {context}: {e}")
+            return True  # Assume no error if we can't check
 
     async def close_modal_emergency(self) -> None:
         """
@@ -709,8 +774,8 @@ class RateManager:
             await asyncio.sleep(0.5)
 
             # Type the start date
-            await start_date_input.type(start_date_str, delay=50)
-            await asyncio.sleep(0.5)
+            await start_date_input.type(start_date_str, delay=random.randint(40, 80))
+            await self.human_delay(0.8, 1.5, wait_for_network=False)
             logger.info(f"Start date set to: {start_date_str}")
 
             # Clear and set end date
@@ -723,16 +788,16 @@ class RateManager:
             await end_date_input.click()
             await self.page.keyboard.press('Control+a')  # Select all
             await self.page.keyboard.press('Delete')     # Delete selected text
-            await asyncio.sleep(0.5)
+            await self.human_delay(0.5, 1, wait_for_network=False)
 
             # Type the end date
-            await end_date_input.type(end_date_str, delay=50)
-            await asyncio.sleep(0.5)
+            await end_date_input.type(end_date_str, delay=random.randint(40, 80))
+            await self.human_delay(0.8, 1.5, wait_for_network=False)
             logger.info(f"End date set to: {end_date_str}")
 
             # Optional: Press Tab or click elsewhere to trigger any date validation
             await end_date_input.press('Tab')
-            await asyncio.sleep(1)
+            await self.human_delay(1, 2, wait_for_network=True)
             return True
 
         except Exception as e:
@@ -775,7 +840,7 @@ class RateManager:
 
             logger.info("Clicking 'Rooms to sell' button to open accordion")
             await rooms_to_sell_button.click()
-            await asyncio.sleep(1)  # Wait for accordion to open
+            await self.human_delay(2, 4, wait_for_network=False)  # Wait for accordion to open
 
             # Step 2: Find and input the number of rooms in the opened accordion
             rooms_input = await self.page.query_selector('input#single-rts-input')
@@ -787,13 +852,13 @@ class RateManager:
             await rooms_input.click()
             await self.page.keyboard.press('Control+a')  # Select all
             await self.page.keyboard.press('Delete')     # Delete selected text
-            await asyncio.sleep(0.2)
+            await self.human_delay(0.5, 1, wait_for_network=False)
 
-            await rooms_input.type(str(num_rooms), delay=50)
+            await rooms_input.type(str(num_rooms), delay=random.randint(30, 70))
             logger.info(f"Input number of rooms: {num_rooms}")
 
             # Step 3: Save changes in the accordion
-            await asyncio.sleep(0.5)  # Brief pause before saving
+            await self.human_delay(1, 3, wait_for_network=False)  # Brief pause before saving
 
             success = await self.click_save_changes_button("rooms to sell accordion")
             if not success:
@@ -843,7 +908,7 @@ class RateManager:
 
             logger.info("Clicking 'Prices' button to open accordion")
             await prices_button.click()
-            await asyncio.sleep(1)  # Wait for accordion to open
+            await self.human_delay(2, 4, wait_for_network=False)  # Wait for accordion to open
 
             # Step 2: Find the rate plan dropdown and select the last option
             rate_plan_select = await self.page.query_selector('select#price-select-0')
@@ -880,7 +945,7 @@ class RateManager:
 
             logger.info(f"Selecting rate plan: {option_text}")
             await rate_plan_select.select_option(value=option_value)
-            await asyncio.sleep(0.5)
+            await self.human_delay(1, 2, wait_for_network=False)
 
             # Step 3: Find and set the price input
             price_input = await self.page.query_selector('input#price-input-0')
@@ -909,13 +974,13 @@ class RateManager:
             await price_input.click()
             await self.page.keyboard.press('Control+a')  # Select all
             await self.page.keyboard.press('Delete')     # Delete selected text
-            await asyncio.sleep(0.2)
+            await self.human_delay(0.3, 0.8, wait_for_network=False)
 
-            await price_input.type(str(price), delay=50)
+            await price_input.type(str(price), delay=random.randint(30, 70))
             logger.info(f"Set price to: {price}")
 
             # Step 4: Save changes
-            await asyncio.sleep(0.5)  # Brief pause before saving
+            await self.human_delay(1, 3, wait_for_network=False)  # Brief pause before saving
 
             success = await self.click_save_changes_button("prices accordion")
             if not success:
@@ -962,7 +1027,7 @@ class RateManager:
 
             logger.info("Clicking 'Room status' button to open accordion")
             await room_status_button.click()
-            await asyncio.sleep(1)  # Wait for accordion to open
+            await self.human_delay(2, 4, wait_for_network=False)  # Wait for accordion to open
 
             # Step 2: Find and click the "Open room" option
             # Try clicking on the span text first as suggested
@@ -970,7 +1035,7 @@ class RateManager:
             if open_room_span:
                 logger.info("Clicking on 'Open room' span")
                 await open_room_span.click()
-                await asyncio.sleep(2)  # Wait for 2 seconds as requested
+                await self.human_delay(2, 4, wait_for_network=False)  # Wait for selection to register
             else:
                 # Fallback to radio button if span not found
                 open_room_radio = await self.page.query_selector('input#single-room-status-input-open')
@@ -996,13 +1061,13 @@ class RateManager:
 
                 logger.info("Clicking 'Open room' radio button")
                 await open_room_radio.click()
-                await asyncio.sleep(2)  # Wait for 2 seconds
+                await self.human_delay(2, 4, wait_for_network=False)  # Wait for selection to register
 
             # Step 3: Wait for save button to become enabled and then click it
             logger.info("Waiting for save button to become enabled...")
 
             # Wait a bit more for the form to update after radio selection
-            await asyncio.sleep(1)
+            await self.human_delay(1, 2, wait_for_network=False)
 
             success = await self.click_save_changes_button("room status accordion")
             if not success:
