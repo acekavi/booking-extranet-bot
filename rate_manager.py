@@ -677,17 +677,29 @@ class RateManager:
             await asyncio.sleep(1)  # Wait for accordion to open
 
             # Step 2: Find the rate plan dropdown and select the last option
-            rate_plan_select = await self.page.query_selector('select[name*="rate"], select option[value*="|"]')
+            rate_plan_select = await self.page.query_selector('select#price-select-0')
             if not rate_plan_select:
-                # Try to find by looking for select element with rate plan options
-                rate_plan_select = await self.page.query_selector('select:has(option[value*="|"])')
+                # Try alternative selectors for the rate plan dropdown
+                rate_plan_selectors = [
+                    'select[id*="price-select"]',
+                    'select.bui-form__control:has(option[value*="|"])',
+                    'select:has(option[value*="|"])'
+                ]
+
+                for selector in rate_plan_selectors:
+                    try:
+                        rate_plan_select = await self.page.query_selector(selector)
+                        if rate_plan_select:
+                            break
+                    except:
+                        continue
 
             if not rate_plan_select:
                 logger.error("Could not find rate plan select dropdown")
                 return False
 
             # Get all options and find the last one (highest guest capacity)
-            options = await rate_plan_select.query_selector_all('option[value]:not([disabled])')
+            options = await rate_plan_select.query_selector_all('option[value]:not([disabled]):not([value=""])')
             if not options:
                 logger.error("No valid rate plan options found")
                 return False
