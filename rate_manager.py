@@ -55,17 +55,128 @@ class RateManager:
 
     def load_csv_data(self) -> None:
         """
-        Load pricing data from the CSV file
+        Load pricing data from the CSV file and ensure Status column exists
         """
         try:
-            csv_path = os.path.join(os.path.dirname(__file__), 'public', 'seasonal_room_prices_optimized.csv')
-            with open(csv_path, 'r', encoding='utf-8') as file:
+            self.csv_path = os.path.join(os.path.dirname(__file__), 'public', 'seasonal_room_prices_optimized.csv')
+
+            with open(self.csv_path, 'r', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
                 self.csv_data = list(reader)
+
+            # Check if Status column exists, if not add it
+            if self.csv_data and 'Status' not in self.csv_data[0]:
+                logger.info("Status column not found, adding it to all records")
+                for record in self.csv_data:
+                    record['Status'] = 'pending'
+                self.save_csv_data()
+
             logger.info(f"Loaded {len(self.csv_data)} pricing records from CSV")
+
+            # Log status summary
+            completed_count = sum(1 for record in self.csv_data if record.get('Status', '').lower() == 'completed')
+            pending_count = len(self.csv_data) - completed_count
+            logger.info(f"Status summary: {completed_count} completed, {pending_count} pending")
+
         except Exception as e:
             logger.error(f"Failed to load CSV data: {e}")
             self.csv_data = []
+
+    def save_csv_data(self) -> None:
+        """
+        Save the current CSV data back to the file
+        """
+        try:
+            if not self.csv_data:
+                logger.warning("No CSV data to save")
+                return
+
+            # Get the fieldnames from the first record
+            fieldnames = list(self.csv_data[0].keys())
+
+            # Write the data back to the CSV file
+            with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(self.csv_data)
+
+            logger.debug("CSV data saved successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to save CSV data: {e}")
+
+    def mark_record_completed(self, record: Dict) -> None:
+        """
+        Mark a specific record as completed in the CSV data
+
+        Args:
+            record: The record dictionary to mark as completed
+        """
+        try:
+            # Find the record in csv_data and mark it as completed
+            for i, csv_record in enumerate(self.csv_data):
+                if (csv_record['Room ID'] == record['Room ID'] and
+                    csv_record['Date Range'] == record['Date Range'] and
+                    csv_record['Price'] == record['Price']):
+                    self.csv_data[i]['Status'] = 'completed'
+                    logger.info(f"Marked record as completed: Room {record['Room ID']}, Range {record['Date Range']}")
+                    break
+
+            # Save the updated data
+            self.save_csv_data()
+
+        except Exception as e:
+            logger.error(f"Failed to mark record as completed: {e}")
+
+    def get_progress_summary(self) -> Dict:
+        """
+        Get a summary of the current processing progress
+
+        Returns:
+            Dict with progress information
+        """
+        try:
+            total_records = len(self.csv_data)
+            completed_records = sum(1 for record in self.csv_data if record.get('Status', '').lower() == 'completed')
+            pending_records = total_records - completed_records
+
+            progress_percentage = (completed_records / total_records * 100) if total_records > 0 else 0
+
+            summary = {
+                'total_records': total_records,
+                'completed_records': completed_records,
+                'pending_records': pending_records,
+                'progress_percentage': round(progress_percentage, 2)
+            }
+
+            logger.info(f"Progress Summary: {completed_records}/{total_records} completed ({progress_percentage:.1f}%)")
+            return summary
+
+        except Exception as e:
+            logger.error(f"Failed to get progress summary: {e}")
+            return {}
+
+    def reset_all_status(self) -> bool:
+        """
+        Reset all records status back to 'pending' (useful for reprocessing)
+
+        Returns:
+            bool: True if reset successful
+        """
+        try:
+            logger.info("Resetting all record statuses to 'pending'")
+
+            for record in self.csv_data:
+                record['Status'] = 'pending'
+
+            self.save_csv_data()
+
+            logger.info(f"Successfully reset {len(self.csv_data)} records to pending status")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to reset all statuses: {e}")
+            return False
 
     def parse_date_range(self, date_range_str: str) -> Tuple[Optional[datetime], Optional[datetime]]:
         """
@@ -109,15 +220,22 @@ class RateManager:
 
     def get_room_data_by_id(self, room_id: str) -> List[Dict]:
         """
-        Get all pricing data for a specific room ID
+        Get all pending (not completed) pricing data for a specific room ID
 
         Args:
             room_id: Room ID to filter by
 
         Returns:
-            List of pricing records for the room
+            List of pending pricing records for the room
         """
-        return [record for record in self.csv_data if record['Room ID'] == room_id]
+        pending_records = []
+        for record in self.csv_data:
+            if (record['Room ID'] == room_id and
+                record.get('Status', '').lower() != 'completed'):
+                pending_records.append(record)
+
+        logger.info(f"Found {len(pending_records)} pending records for room ID {room_id}")
+        return pending_records
 
     async def navigate_to_calendar(self) -> bool:
         """
@@ -221,6 +339,10 @@ class RateManager:
         try:
             logger.info("Starting to process all rooms...")
 
+            # Show initial progress summary
+            progress = self.get_progress_summary()
+            logger.info(f"Initial progress: {progress['completed_records']}/{progress['total_records']} records completed ({progress['progress_percentage']}%)")
+
             # Find all room containers
             room_containers = await self.page.query_selector_all('.av-cal-list-room__name-row')
             logger.info(f"Found {len(room_containers)} rooms to process")
@@ -237,7 +359,13 @@ class RateManager:
                         logger.warning(f"Could not extract info for room {i+1}")
                         continue
 
-                    logger.info(f"Processing room: {room_info['name']} (ID: {room_info['id']})")
+                    # Check if this room has any pending records
+                    pending_records = self.get_room_data_by_id(room_info['id'])
+                    if not pending_records:
+                        logger.info(f"Skipping room {room_info['name']} - no pending records")
+                        continue
+
+                    logger.info(f"Processing room: {room_info['name']} (ID: {room_info['id']}) - {len(pending_records)} pending records")
 
                     # Process this room
                     success = await self.process_single_room(room_container, room_info)
@@ -247,6 +375,10 @@ class RateManager:
 
                     logger.info(f"Successfully processed room: {room_info['name']}")
 
+                    # Show updated progress
+                    progress = self.get_progress_summary()
+                    logger.info(f"Updated progress: {progress['completed_records']}/{progress['total_records']} records completed ({progress['progress_percentage']}%)")
+
                     # Small delay between rooms to avoid overwhelming the system
                     await self.human_delay(4, 8, wait_for_network=True)  # Human-like delay between rooms
 
@@ -254,6 +386,16 @@ class RateManager:
                     logger.error(f"Error processing room {i+1}: {e}")
                     continue
 
+            # Show final progress summary
+            final_progress = self.get_progress_summary()
+            logger.info("=" * 60)
+            logger.info("FINAL PROCESSING SUMMARY")
+            logger.info("=" * 60)
+            logger.info(f"Total records: {final_progress['total_records']}")
+            logger.info(f"Completed records: {final_progress['completed_records']}")
+            logger.info(f"Pending records: {final_progress['pending_records']}")
+            logger.info(f"Completion percentage: {final_progress['progress_percentage']}%")
+            logger.info("=" * 60)
             logger.info("Completed processing all rooms")
             return True
 
@@ -377,14 +519,14 @@ class RateManager:
                 logger.error("Modal did not load properly")
                 return False
 
-            # Get room data from CSV
+            # Get room data from CSV (only pending records)
             room_data = self.get_room_data_by_id(room_info['id'])
             if not room_data:
-                logger.error(f"No CSV data found for room ID {room_info['id']}")
+                logger.info(f"No pending CSV data found for room ID {room_info['id']}")
                 await self.close_modal_emergency()
-                return False
+                return True  # No pending data is not an error
 
-            logger.info(f"Found {len(room_data)} pricing records for room {room_info['name']}")
+            logger.info(f"Found {len(room_data)} pending pricing records for room {room_info['name']}")
 
             # Filter out date ranges that are before today
             today = datetime.now().date()
@@ -432,6 +574,10 @@ class RateManager:
                     logger.error(f"Failed to process date range for record: {record}")
                     await self.close_modal_emergency()
                     return False
+
+                # Mark this record as completed after successful processing
+                logger.info(f"Marking record as completed: Room {record['Room ID']}, Range {record['Date Range']}")
+                self.mark_record_completed(record)
 
                 # Small delay between date range updates
                 await self.human_delay(4, 8, wait_for_network=True)  # Human-like delay to prevent overwhelming the system
@@ -513,6 +659,10 @@ class RateManager:
 
             # Process the date range
             success = await self.process_date_range_in_modal(record)
+
+            # Note: The record will be marked as completed in the calling method
+            # (handle_bulk_edit_modal) to avoid duplicate marking
+
             return success
 
         except Exception as e:
