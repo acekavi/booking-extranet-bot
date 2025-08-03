@@ -728,7 +728,7 @@ class RateManager:
 
             # Save and close this date range processing
             logger.info("Step 5: Saving and closing for this date range...")
-            success = await self.save_and_close_modal()
+            success = await self.close_edit_modal()
             if not success:
                 logger.error("Failed to save and close modal for this date range")
                 return False
@@ -1081,49 +1081,17 @@ class RateManager:
             logger.error(f"Error setting room status to open: {e}")
             return False
 
-    async def save_and_close_modal(self) -> bool:
+    async def close_edit_modal(self) -> bool:
         """
-        Save changes and close the bulk edit modal
+        Close the bulk edit modal without saving
 
         Returns:
-            bool: True if modal saved and closed successfully
+            bool: True if modal closed successfully
         """
         try:
-            logger.info("Saving and closing bulk edit modal")
+            logger.info("Closing bulk edit modal")
 
-            # First try to find and click any save/apply button if present
-            save_selectors = [
-                'button[type="submit"]',
-                'button:has-text("Save")',
-                'button:has-text("Apply")',
-                'button:has-text("Update")',
-                '.bui-button--primary:has-text("Save")',
-                '.bui-button--primary:has-text("Apply")'
-            ]
-
-            save_button_found = False
-            for selector in save_selectors:
-                try:
-                    save_button = await self.page.query_selector(selector)
-                    if save_button:
-                        # Check if button is visible and enabled
-                        is_visible = await save_button.is_visible()
-                        is_enabled = await save_button.is_enabled()
-
-                        if is_visible and is_enabled:
-                            logger.info(f"Found and clicking save button: {selector}")
-                            await save_button.click()
-                            save_button_found = True
-                            await asyncio.sleep(1)  # Wait for save to process
-                            break
-                except Exception:
-                    continue
-
-            if save_button_found:
-                logger.info("Save button clicked, waiting before closing modal")
-                await asyncio.sleep(2)  # Give time for save operation
-
-            # Now close the modal using the close button
+            # Close the modal using the close button
             close_button_selector = 'button.av-general-modal__close'
 
             try:
@@ -1164,7 +1132,7 @@ class RateManager:
                 return True
 
         except Exception as e:
-            logger.error(f"Error saving and closing modal: {e}")
+            logger.error(f"Error closing modal: {e}")
             return False
 
     async def select_date_range(self, start_date: str, end_date: str) -> bool:
