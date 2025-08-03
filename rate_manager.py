@@ -562,19 +562,76 @@ class RateManager:
             bool: True if rooms to sell set successfully
         """
         try:
-            logger.info(f"[DUMMY] Setting rooms to sell: {num_rooms}")
+            logger.info(f"Setting rooms to sell: {num_rooms}")
 
-            # TODO: Implement based on actual modal UI
-            # This might be an input field or dropdown
-            # Example selectors to try:
-            # - input[name="rooms"]
-            # - input[id*="room"]
-            # - select[name="rooms_to_sell"]
+            # Step 1: Find and click the "Rooms to sell" button to open accordion
+            rooms_to_sell_button = None
+            button_selectors = [
+                'button:has-text("Rooms to sell")',
+                'button:text("Rooms to sell")',
+                '[role="button"]:has-text("Rooms to sell")',
+                'button[aria-expanded="false"]:has-text("Rooms to sell")'
+            ]
 
-            # Simulate setting rooms to sell
-            await asyncio.sleep(0.5)  # Simulate processing time
-            logger.info(f"[DUMMY] Successfully set rooms to sell to: {num_rooms}")
+            for selector in button_selectors:
+                try:
+                    rooms_to_sell_button = await self.page.query_selector(selector)
+                    if rooms_to_sell_button and await rooms_to_sell_button.is_visible():
+                        break
+                except:
+                    continue
 
+            if not rooms_to_sell_button:
+                logger.error("Could not find 'Rooms to sell' button")
+                return False
+
+            logger.info("Clicking 'Rooms to sell' button to open accordion")
+            await rooms_to_sell_button.click()
+            await asyncio.sleep(1)  # Wait for accordion to open
+
+            # Step 2: Find and input the number of rooms in the opened accordion
+            rooms_input = await self.page.query_selector('input#single-rts-input')
+            if not rooms_input:
+                logger.error("Could not find rooms input field after opening accordion")
+                return False
+
+            # Clear existing value and input new number
+            await rooms_input.click()
+            await self.page.keyboard.press('Control+a')  # Select all
+            await self.page.keyboard.press('Delete')     # Delete selected text
+            await asyncio.sleep(0.2)
+
+            await rooms_input.type(str(num_rooms), delay=50)
+            logger.info(f"Input number of rooms: {num_rooms}")
+
+            # Step 3: Find and click "Save changes" button in the accordion
+            await asyncio.sleep(0.5)  # Brief pause before looking for save button
+
+            save_button_selectors = [
+                'button:has-text("Save changes")',
+                'button:text("Save changes")',
+                '.bui-button:has-text("Save changes")',
+                '[type="submit"]:has-text("Save changes")'
+            ]
+
+            save_button = None
+            for selector in save_button_selectors:
+                try:
+                    save_button = await self.page.query_selector(selector)
+                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
+                        break
+                except:
+                    continue
+
+            if not save_button:
+                logger.error("Could not find 'Save changes' button in accordion")
+                return False
+
+            logger.info("Clicking 'Save changes' button to save rooms to sell")
+            await save_button.click()
+            await asyncio.sleep(1)  # Wait for save operation to complete
+
+            logger.info(f"Successfully set rooms to sell to: {num_rooms}")
             return True
 
         except Exception as e:
@@ -592,35 +649,118 @@ class RateManager:
             bool: True if rate plan and price set successfully
         """
         try:
-            logger.info(f"[DUMMY] Setting rate plan and price: {price}")
+            logger.info(f"Setting rate plan and price: {price}")
 
-            # TODO: Implement based on actual modal UI
-            # Steps to implement:
-            # 1. Find rate plan dropdown (likely select element or button with dropdown)
-            # 2. Get all options from the dropdown
-            # 3. Select the last option (with most guests)
-            # 4. Find price input field
-            # 5. Set the price in the price field
+            # Step 1: Find and click the "Prices" button to open accordion
+            prices_button = None
+            button_selectors = [
+                'button:has-text("Prices")',
+                'button:text("Prices")',
+                '[role="button"]:has-text("Prices")',
+                'button[aria-expanded="false"]:has-text("Prices")'
+            ]
 
-            # Example selectors to try:
-            # Rate plan dropdown:
-            # - select[name*="rate"]
-            # - select[id*="plan"]
-            # - button[aria-haspopup="listbox"]
-            #
-            # Price input:
-            # - input[name*="price"]
-            # - input[id*="rate"]
-            # - input[type="number"]
+            for selector in button_selectors:
+                try:
+                    prices_button = await self.page.query_selector(selector)
+                    if prices_button and await prices_button.is_visible():
+                        break
+                except:
+                    continue
 
-            # Simulate selecting rate plan
+            if not prices_button:
+                logger.error("Could not find 'Prices' button")
+                return False
+
+            logger.info("Clicking 'Prices' button to open accordion")
+            await prices_button.click()
+            await asyncio.sleep(1)  # Wait for accordion to open
+
+            # Step 2: Find the rate plan dropdown and select the last option
+            rate_plan_select = await self.page.query_selector('select[name*="rate"], select option[value*="|"]')
+            if not rate_plan_select:
+                # Try to find by looking for select element with rate plan options
+                rate_plan_select = await self.page.query_selector('select:has(option[value*="|"])')
+
+            if not rate_plan_select:
+                logger.error("Could not find rate plan select dropdown")
+                return False
+
+            # Get all options and find the last one (highest guest capacity)
+            options = await rate_plan_select.query_selector_all('option[value]:not([disabled])')
+            if not options:
+                logger.error("No valid rate plan options found")
+                return False
+
+            # Select the last option (usually has the maximum guests)
+            last_option = options[-1]
+            option_value = await last_option.get_attribute('value')
+            option_text = await last_option.inner_text()
+
+            logger.info(f"Selecting rate plan: {option_text}")
+            await rate_plan_select.select_option(value=option_value)
             await asyncio.sleep(0.5)
-            logger.info(f"[DUMMY] Selected last rate plan (highest guest capacity)")
 
-            # Simulate setting price
-            await asyncio.sleep(0.5)
-            logger.info(f"[DUMMY] Successfully set price to: {price}")
+            # Step 3: Find and set the price input
+            price_input = await self.page.query_selector('input#price-input-0')
+            if not price_input:
+                # Try alternative selectors for price input
+                price_input_selectors = [
+                    'input[id*="price-input"]',
+                    'input[name*="price"]',
+                    'input[aria-describedby*="price"]',
+                    'input.bui-form__control[type="text"]'
+                ]
 
+                for selector in price_input_selectors:
+                    try:
+                        price_input = await self.page.query_selector(selector)
+                        if price_input and await price_input.is_visible():
+                            break
+                    except:
+                        continue
+
+            if not price_input:
+                logger.error("Could not find price input field")
+                return False
+
+            # Clear existing value and input new price
+            await price_input.click()
+            await self.page.keyboard.press('Control+a')  # Select all
+            await self.page.keyboard.press('Delete')     # Delete selected text
+            await asyncio.sleep(0.2)
+
+            await price_input.type(str(price), delay=50)
+            logger.info(f"Set price to: {price}")
+
+            # Step 4: Find and click "Save changes" button
+            await asyncio.sleep(0.5)  # Brief pause before looking for save button
+
+            save_button_selectors = [
+                'button:has-text("Save changes")',
+                'button:text("Save changes")',
+                '.bui-button:has-text("Save changes")',
+                '[type="submit"]:has-text("Save changes")'
+            ]
+
+            save_button = None
+            for selector in save_button_selectors:
+                try:
+                    save_button = await self.page.query_selector(selector)
+                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
+                        break
+                except:
+                    continue
+
+            if not save_button:
+                logger.error("Could not find 'Save changes' button for prices")
+                return False
+
+            logger.info("Clicking 'Save changes' button to save rate plan and price")
+            await save_button.click()
+            await asyncio.sleep(1)  # Wait for save operation to complete
+
+            logger.info(f"Successfully set rate plan to: {option_text} and price to: {price}")
             return True
 
         except Exception as e:
@@ -635,34 +775,85 @@ class RateManager:
             bool: True if room status set successfully
         """
         try:
-            logger.info("[DUMMY] Setting room status to open")
+            logger.info("Setting room status to open")
 
-            # TODO: Implement based on actual modal UI
-            # This might be:
-            # - A radio button group
-            # - A checkbox
-            # - A dropdown/select element
-            # - Toggle buttons
+            # Step 1: Find and click the "Room status" button to open accordion
+            room_status_button = None
+            button_selectors = [
+                'button:has-text("Room status")',
+                'button:text("Room status")',
+                '[role="button"]:has-text("Room status")',
+                'button[aria-expanded="false"]:has-text("Room status")'
+            ]
 
-            # Example selectors to try:
-            # Radio buttons:
-            # - input[type="radio"][value*="open"]
-            # - input[name*="status"][value="open"]
-            #
-            # Checkbox:
-            # - input[type="checkbox"][name*="open"]
-            #
-            # Dropdown:
-            # - select[name*="status"] option[value*="open"]
-            #
-            # Button:
-            # - button:has-text("Open")
-            # - button[data-value="open"]
+            for selector in button_selectors:
+                try:
+                    room_status_button = await self.page.query_selector(selector)
+                    if room_status_button and await room_status_button.is_visible():
+                        break
+                except:
+                    continue
 
-            # Simulate setting room status
+            if not room_status_button:
+                logger.error("Could not find 'Room status' button")
+                return False
+
+            logger.info("Clicking 'Room status' button to open accordion")
+            await room_status_button.click()
+            await asyncio.sleep(1)  # Wait for accordion to open
+
+            # Step 2: Find and click the "Open room" radio button
+            open_room_radio = await self.page.query_selector('input#single-room-status-input-open')
+            if not open_room_radio:
+                # Try alternative selectors
+                radio_selectors = [
+                    'input[type="radio"][name="rate"][value="true"]',
+                    'input[id*="room-status"][value="true"]',
+                    'label:has-text("Open room") input[type="radio"]'
+                ]
+
+                for selector in radio_selectors:
+                    try:
+                        open_room_radio = await self.page.query_selector(selector)
+                        if open_room_radio:
+                            break
+                    except:
+                        continue
+
+            if not open_room_radio:
+                logger.error("Could not find 'Open room' radio button")
+                return False
+
+            logger.info("Selecting 'Open room' radio button")
+            await open_room_radio.click()
             await asyncio.sleep(0.5)
-            logger.info("[DUMMY] Successfully set room status to: Open")
 
+            # Step 3: Find and click "Save changes" button in the accordion
+            save_button_selectors = [
+                'button:has-text("Save changes")',
+                'button:text("Save changes")',
+                '.bui-button:has-text("Save changes")',
+                '[type="submit"]:has-text("Save changes")'
+            ]
+
+            save_button = None
+            for selector in save_button_selectors:
+                try:
+                    save_button = await self.page.query_selector(selector)
+                    if save_button and await save_button.is_visible() and await save_button.is_enabled():
+                        break
+                except:
+                    continue
+
+            if not save_button:
+                logger.error("Could not find 'Save changes' button for room status")
+                return False
+
+            logger.info("Clicking 'Save changes' button to save room status")
+            await save_button.click()
+            await asyncio.sleep(1)  # Wait for save operation to complete
+
+            logger.info("Successfully set room status to: Open room")
             return True
 
         except Exception as e:
