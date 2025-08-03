@@ -6,6 +6,7 @@ from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 import pyotp
 from dotenv import load_dotenv
+from rate_manager import RateManager
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +31,7 @@ class BookingExtranetBot:
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
+        self.rate_manager: Optional[RateManager] = None
 
         # Load credentials from environment variables
         self.username = os.getenv('BOOKING_USERNAME')
@@ -67,6 +69,9 @@ class BookingExtranetBot:
 
             # Create new page
             self.page = await self.context.new_page()
+
+            # Initialize rate manager with the page
+            self.rate_manager = RateManager(self.page)
 
             # Set extra HTTP headers
             await self.page.set_extra_http_headers({
@@ -271,9 +276,26 @@ class BookingExtranetBot:
                 await self.context.close()
             if self.browser:
                 await self.browser.close()
+            self.rate_manager = None
             logger.info("Browser closed successfully")
         except Exception as e:
             logger.error(f"Error closing browser: {e}")
+
+    async def navigate_to_calendar(self) -> bool:
+        """Navigate to the rates & availability calendar"""
+        if not self.rate_manager:
+            logger.error("Rate manager not initialized")
+            return False
+
+        return await self.rate_manager.navigate_to_calendar()
+
+    async def get_calendar_info(self) -> dict:
+        """Get information about the current calendar page for debugging"""
+        if not self.rate_manager:
+            logger.error("Rate manager not initialized")
+            return {}
+
+        return await self.rate_manager.get_current_page_info()
 
 # Example usage
 async def main():
@@ -288,7 +310,15 @@ async def main():
         if await bot.login():
             logger.info("Login successful, ready for automation tasks!")
 
+            # Test navigation to calendar
+            if await bot.navigate_to_calendar():
+                logger.info("Successfully navigated to calendar!")
 
+                # Get page info for debugging
+                page_info = await bot.get_calendar_info()
+                logger.info(f"Calendar page info: {page_info}")
+            else:
+                logger.error("Failed to navigate to calendar")
 
         else:
             logger.error("Login failed!")
