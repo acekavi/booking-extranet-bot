@@ -131,15 +131,32 @@ Or read both straight out of your website's database:
 
 **The queries live in your config, not in this repo** — no two property websites share a schema, and publishing this tool should not publish yours. The queries just have to return the right column names; see `config/source.postgres.example.json`. Put the connection string in `.env` (gitignored).
 
-## Log in
+## Log in — once
 
 ```bash
 npm run login
 ```
 
-A browser opens. Log in yourself, including 2FA. Only the resulting session is saved, to `.auth/` (gitignored).
+A browser opens. Log in yourself, including 2FA. Press Enter, and the browser's session state is saved to `.auth/` (gitignored). Every later command reuses it.
 
-**The tool never asks for your password and has nowhere to store one.** No credential handling, no TOTP secret in a dotfile, and nothing to leak if the repo is public. Re-run it when the session expires.
+That is the whole authentication story, and it is doing more work than it looks like.
+
+**It deletes the hardest part of the problem.** The login page is the most defended and most frequently redesigned surface on any extranet — new device checks, changed 2FA prompts, occasional CAPTCHAs, markup that moves without warning. Automating it means writing the most fragile code in the project and then repairing it forever. Handing that one step to a human removes the entire category. This tool has no login form to keep working, because it never touches one.
+
+**It costs you one login, not one per run.** The session persists across `plan`, `push`, `verify-selectors`, retries and resumed runs. A push that dies at range 100 and gets resumed does not re-authenticate.
+
+**It is what makes this repo safe to publish.** There is no password handling, no TOTP implementation and no credential storage anywhere in the source — so there is no credential bug to have, and nothing sensitive to leak if you fork this or make your copy public. Compare the alternative: `BOOKING_PASSWORD` in a dotfile, on every machine that runs it.
+
+**It keeps you in the loop.** You see the account you are logging into, and any security prompt the platform shows you, in a real browser window — rather than a script silently answering challenges on your behalf.
+
+The cost is that sessions expire, and you re-run `npm run login` when they do. The tool tells you when that has happened instead of failing cryptically:
+
+```
+The calendar never showed any rooms. The saved session has most likely
+expired — run `npm run login` again.
+```
+
+> This replaced an earlier implementation that automated username, password and TOTP. That code was the single most breakage-prone part of the project and the only part that ever needed secrets. Deleting it made the tool simpler, safer and considerably more pleasant to publish.
 
 ## Plan, then push
 
@@ -217,7 +234,7 @@ That distinction matters, because the two goals pull in opposite directions. Too
 
 **It runs visibly by default.** `--headless` is opt-in. Watching the browser do the work is the normal mode.
 
-**You log in; it doesn't.** There is no automated login, no stored password, no TOTP handling and no CAPTCHA solving. The tool inherits a session you created by hand and uses it until it expires.
+**You log in; it doesn't.** There is no automated login, no stored password, no TOTP handling and no CAPTCHA solving. The tool inherits a session you created by hand and uses it until it expires — see [Log in — once](#log-in--once).
 
 **`plan` touches nothing.** The default posture is to compute and print. Only `push` writes.
 
