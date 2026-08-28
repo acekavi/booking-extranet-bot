@@ -1,0 +1,31 @@
+{
+  "name": "booking-extranet-bot",
+  "version": "2.0.0",
+  "description": "Derive Booking.com rates from your own direct prices and push rates + availability to the extranet calendar.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "login": "tsx src/cli.ts login",
+    "plan": "tsx src/cli.ts plan",
+    "push": "tsx src/cli.ts push",
+    "verify-selectors": "tsx src/cli.ts verify-selectors",
+    "check-clean": "tsx scripts/check-clean.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0",
+    "zod": "^3.23.0"
+  },
+  "optionalDependencies": {
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

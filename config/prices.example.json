@@ -1,0 +1,4 @@
+{
+  "Example Double Room": { "High": 80, "Shoulder": 55, "Low": 40 },
+  "Example Family Room": { "High": 120, "Shoulder": 85, "Low": 60 }
+}

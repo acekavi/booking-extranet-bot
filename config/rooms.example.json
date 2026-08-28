@@ -1,0 +1,24 @@
+{
+  "seasons": {
+    "High": [12, 1, 2, 3],
+    "Shoulder": [4, 11],
+    "Low": [5, 6, 7, 8, 9, 10]
+  },
+
+  "ratePlans": [
+    { "matches": "standard", "includesBreakfast": false }
+  ],
+
+  "rooms": {
+    "Example Double Room": {
+      "roomId": "REPLACE_WITH_DOUBLE_ROOM_ID",
+      "units": 4,
+      "capacity": 2
+    },
+    "Example Family Room": {
+      "roomId": "REPLACE_WITH_FAMILY_ROOM_ID",
+      "units": 2,
+      "capacity": 4
+    }
+  }
+}

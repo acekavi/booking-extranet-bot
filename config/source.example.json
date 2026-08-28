@@ -1,0 +1,5 @@
+{
+  "type": "json",
+  "pricesPath": "config/prices.json",
+  "bookingsPath": "output/bookings.csv"
+}

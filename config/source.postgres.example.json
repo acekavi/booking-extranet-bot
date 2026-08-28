@@ -1,0 +1,8 @@
+{
+  "type": "postgres",
+  "connectionStringEnv": "DATABASE_URL",
+
+  "pricesQuery": "select r.name as room, s.label as season, p.price as price from your_prices p join your_rooms r on r.id = p.room_id join your_seasons s on s.id = p.season_id order by r.name, s.sort_order",
+
+  "bookingsQuery": "select b.id as reference, r.name as room, to_char(b.check_in, 'YYYY-MM-DD') as \"checkIn\", to_char(b.check_out, 'YYYY-MM-DD') as \"checkOut\", br.quantity as quantity from your_bookings b join your_booking_rooms br on br.booking_id = b.id join your_rooms r on r.id = br.room_id where b.status = 'confirmed'"
+}

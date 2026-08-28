@@ -1,0 +1,16 @@
+{
+  "currency": "USD",
+  "commissionPct": 15,
+
+  "discounts": {
+    "loyalty1": 10,
+    "loyalty2": 15,
+    "loyalty3": 20,
+    "mobile": 10
+  },
+  "worstCaseStack": ["loyalty3", "mobile"],
+
+  "directDiscountVsGuestPricePct": 5,
+  "nonRefundableDiscountPct": 5,
+  "breakfastPerPersonPerNight": 0
+}

@@ -1,0 +1,24 @@
+# --- Secrets and session state -------------------------------------------
+.env
+.env.*
+!.env.example
+.auth/
+
+# --- Your property's real configuration ----------------------------------
+# Only *.example.json is ever committed. See README "Keeping your data out
+# of git"; `npm run check-clean` enforces this.
+config/*.json
+!config/*.example.json
+
+# --- Run artefacts (may contain reservation data) -------------------------
+output/
+input/
+*.log
+
+# --- Tooling --------------------------------------------------------------
+node_modules/
+dist/
+coverage/
+.vscode/
+.idea/
+.DS_Store
