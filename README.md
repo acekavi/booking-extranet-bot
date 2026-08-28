@@ -195,6 +195,56 @@ opens the calendar and reports which selectors still match, and whether every ra
 
 ---
 
+## How it avoids looking like a problem
+
+Short version: **it does not try to hide.** It logs in as you, in a real browser, and does the same edits you would do by hand — slower, and fewer of them. The goal is to not be a nuisance to the platform, not to be undetectable by it.
+
+That distinction matters, because the two goals pull in opposite directions. Tools that try to look human usually end up hammering the server behind a disguise, which is both worse behaviour and easier to spot.
+
+### What it does
+
+**One request where a naive tool makes ninety.** Rates and availability are collapsed into date ranges and written with the calendar's own Bulk Edit panel. A whole season at one price is a single save. This is by far the biggest factor — it is the difference between a few dozen writes for a year of pricing and several thousand.
+
+**It waits for confirmation instead of retrying blindly.** Every save waits for the extranet's own success banner before moving on. Nothing is fired at a fixed interval and nothing is repeated in a loop hoping it lands.
+
+**One retry, then it stops.** A failed range is attempted once more and then the run fails loudly. There is no backoff loop that quietly turns one broken selector into a thousand requests.
+
+**Randomised pauses between actions.** 400–1000 ms after each save, plus the settle delays the panel needs anyway.
+
+**Prices are typed, not injected.** Each character is entered as a real keystroke at 60 ms intervals. This exists because the panel's React inputs ignore programmatic value-setting — but the side effect is that the tool types at roughly human speed rather than filling a form instantly.
+
+**Everything is sequential.** One browser, one tab, one room at a time. No concurrency, no parallel sessions, no second window.
+
+**It runs visibly by default.** `--headless` is opt-in. Watching the browser do the work is the normal mode.
+
+**You log in; it doesn't.** There is no automated login, no stored password, no TOTP handling and no CAPTCHA solving. The tool inherits a session you created by hand and uses it until it expires.
+
+**`plan` touches nothing.** The default posture is to compute and print. Only `push` writes.
+
+### What it deliberately does not do
+
+No user-agent spoofing, no stealth or anti-detection plugin, no proxy rotation, no `navigator.webdriver` patching, no canvas or fingerprint tampering, no CAPTCHA solving. Stock Playwright Chromium, as installed.
+
+**So yes — the extranet can tell this is automation if it looks.** Playwright sets `navigator.webdriver`, and that is not patched out. Anything in this list would be added only to defeat a control the platform put there on purpose, which is a different activity from managing your own listing, and it is not what this tool is for.
+
+### The thing that actually matters
+
+Volume and rhythm, not fingerprint. A few hundred writes once a month, in the daytime, from a property manager's own session, looks like a property manager. The same tool on an hourly cron looks like a scraper regardless of how convincingly it types.
+
+So, in practice:
+
+- **Run it when you would naturally be working.** Not at 4am, not every hour.
+- **Push when prices change, not on a schedule.** This is a tool for a pricing decision, not a heartbeat.
+- **Keep runs small.** `--room`, `--from`/`--to` and `--rates-only` all narrow the work. A rerun after a partial failure should use `--resume`, which skips what already landed rather than rewriting it.
+- **Use `plan` first, every time.** It costs nothing and catches the mistake that would otherwise become 200 wrong writes.
+- **If you ever get challenged or rate-limited, slow down or do less.** Do not reach for a way around it — that is the point at which ordinary automation of your own account turns into something else.
+
+### And check your agreement
+
+Your contract with the platform governs what you may automate against your own listing, and it is the authority here, not this README. Read it. If it prohibits automated access, this tool is not a loophole.
+
+---
+
 ## Keeping your data out of git
 
 This repo is public and contains no property's data. That is enforced, not promised:
@@ -251,7 +301,7 @@ The domain layer is not Booking.com-specific — it is arithmetic over prices, s
 
 ## Legal
 
-For managing property listings you control. Automating an extranet may be constrained by your agreement with the platform; check yours. The tool logs in as you, in your own browser session, at human-ish speed, and only touches your own listings.
+For managing property listings you control, from your own account. See [How it avoids looking like a problem](#how-it-avoids-looking-like-a-problem) for how it behaves and what your agreement with the platform has to say about it.
 
 ## License
 
